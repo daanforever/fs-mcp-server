@@ -8,13 +8,11 @@ import (
 	"strings"
 )
 
-// MCPRequest представляет структуру запроса MCP
 type MCPRequest struct {
 	Method  string          `json:"method"`
 	Params  json.RawMessage `json:"params"`
 }
 
-// MCPResponse представляет структуру ответа MCP
 type MCPResponse struct {
 	Result interface{} `json:"result,omitempty"`
 	Error  *MCPError   `json:"error,omitempty"`
@@ -25,15 +23,13 @@ type MCPError struct {
 	Message string `json:"message"`
 }
 
-// EditFileRequest параметры для редактирования файла
 type EditFileRequest struct {
-	Filename string `json:"filename"`
-	Content  string `json:"content,omitempty"`   // Для полной замены
-	OldText  string `json:"old_text,omitempty"`  // Текст для замены
-	NewText  string `json:"new_text,omitempty"`  // Новый текст
+	Filename string  `json:"filename"`
+	Content  *string `json:"content,omitempty"`
+	OldText  *string `json:"old_text,omitempty"`
+	NewText  *string `json:"new_text,omitempty"`
 }
 
-// ReadFileRequest параметры для чтения файла
 type ReadFileRequest struct {
 	Filename string `json:"filename"`
 }
@@ -157,18 +153,23 @@ func handleRequest(req MCPRequest) MCPResponse {
 func editFile(args EditFileRequest) MCPResponse {
 	// Создаем директории если нужно
 	dir := filepath.Dir(args.Filename)
-	if dir != "." {
+	if dir != "." && dir != "" {
 		os.MkdirAll(dir, 0755)
 	}
 	
 	var content []byte
 	var err error
 	
+	// Определяем какие параметры переданы
+	hasContent := args.Content != nil
+	hasOldText := args.OldText != nil
+	hasNewText := args.NewText != nil
+	
 	// Приоритет: content > old_text/new_text
-	if args.Content != "" {
-		// Режим полной записи
-		content = []byte(args.Content)
-	} else if args.OldText != "" {
+	if hasContent {
+		// Режим полной записи (включая пустую строку)
+		content = []byte(*args.Content)
+	} else if hasOldText {
 		// Режим замены текста
 		content, err = os.ReadFile(args.Filename)
 		if err != nil && !os.IsNotExist(err) {
@@ -178,17 +179,17 @@ func editFile(args EditFileRequest) MCPResponse {
 		}
 		
 		fileContent := string(content)
-		newText := args.NewText
+		oldText := *args.OldText
+		newText := ""
+		if hasNewText {
+			newText = *args.NewText
+		}
 		
-		// Заменяем текст
-		if args.OldText == "*" {
-			// Специальный случай: * означает полную замену содержимого
+		if oldText == "*" {
 			fileContent = newText
-		} else if strings.Contains(fileContent, args.OldText) {
-			// Заменяем все вхождения
-			fileContent = strings.ReplaceAll(fileContent, args.OldText, newText)
-		} else if args.NewText != "" {
-			// Если старый текст не найден, но есть новый - добавляем в конец
+		} else if strings.Contains(fileContent, oldText) {
+			fileContent = strings.ReplaceAll(fileContent, oldText, newText)
+		} else if newText != "" {
 			if fileContent != "" && !strings.HasSuffix(fileContent, "\n") {
 				fileContent += "\n"
 			}
@@ -196,7 +197,7 @@ func editFile(args EditFileRequest) MCPResponse {
 		}
 		
 		content = []byte(fileContent)
-	} else if args.NewText != "" {
+	} else if hasNewText {
 		// Добавление в конец файла
 		current, err := os.ReadFile(args.Filename)
 		if err != nil && !os.IsNotExist(err) {
@@ -205,10 +206,11 @@ func editFile(args EditFileRequest) MCPResponse {
 			}
 		}
 		fileContent := string(current)
+		newText := *args.NewText
 		if fileContent != "" && !strings.HasSuffix(fileContent, "\n") {
 			fileContent += "\n"
 		}
-		fileContent += args.NewText
+		fileContent += newText
 		content = []byte(fileContent)
 	} else {
 		return MCPResponse{
@@ -216,7 +218,6 @@ func editFile(args EditFileRequest) MCPResponse {
 		}
 	}
 	
-	// Записываем файл
 	err = os.WriteFile(args.Filename, content, 0644)
 	if err != nil {
 		return MCPResponse{
