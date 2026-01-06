@@ -2,20 +2,26 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
 type MCPRequest struct {
+	JSONRPC string          `json:"jsonrpc"`
+	ID      interface{}     `json:"id"`
 	Method  string          `json:"method"`
 	Params  json.RawMessage `json:"params"`
 }
 
 type MCPResponse struct {
-	Result interface{} `json:"result,omitempty"`
-	Error  *MCPError   `json:"error,omitempty"`
+	JSONRPC string      `json:"jsonrpc"`
+	ID      interface{} `json:"id"`
+	Result  interface{} `json:"result,omitempty"`
+	Error   *MCPError   `json:"error,omitempty"`
 }
 
 type MCPError struct {
@@ -36,76 +42,103 @@ type ReadFileRequest struct {
 
 func main() {
 	decoder := json.NewDecoder(os.Stdin)
+	encoder := json.NewEncoder(os.Stdout)
+	
 	for {
 		var req MCPRequest
 		if err := decoder.Decode(&req); err != nil {
-			if err.Error() == "EOF" {
+			if errors.Is(err, io.EOF) {
 				return
+			}
+			// Отправляем ошибку парсинга, если есть ID
+			if req.ID != nil {
+				resp := MCPResponse{
+					JSONRPC: "2.0",
+					ID:      req.ID,
+					Error: &MCPError{
+						Code:    -32700,
+						Message: fmt.Sprintf("Parse error: %v", err),
+					},
+				}
+				encoder.Encode(resp)
 			}
 			continue
 		}
+		
 		resp := handleRequest(req)
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.Encode(resp)
+		if err := encoder.Encode(resp); err != nil {
+			// Если не удалось отправить ответ, выходим
+			return
+		}
 	}
 }
 
 func handleRequest(req MCPRequest) MCPResponse {
+	resp := MCPResponse{
+		JSONRPC: "2.0",
+		ID:      req.ID,
+	}
+	
 	switch req.Method {
 	case "initialize":
-		return MCPResponse{
-			Result: map[string]interface{}{
-				"protocolVersion": "2024-11-05",
-				"serverInfo": map[string]interface{}{
-					"name":    "file-edit-server",
-					"version": "1.0.0",
+		resp.Result = map[string]interface{}{
+			"protocolVersion": "2024-11-05",
+			"serverInfo": map[string]interface{}{
+				"name":    "file-edit-server",
+				"version": "1.0.0",
+			},
+			"capabilities": map[string]interface{}{
+				"tools": map[string]interface{}{},
+			},
+		}
+		return resp
+	
+	case "tools/list":
+		resp.Result = map[string]interface{}{
+			"tools": []map[string]interface{}{
+				{
+					"name":        "edit_file",
+					"description": "Edit or create a file with partial or full replacement",
+					"inputSchema": map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"filename": map[string]interface{}{
+								"type":        "string",
+								"description": "Path to the file",
+							},
+							"content": map[string]interface{}{
+								"type":        "string",
+								"description": "Full content to write (overrides partial replacement)",
+							},
+							"old_text": map[string]interface{}{
+								"type":        "string",
+								"description": "Text to be replaced",
+							},
+							"new_text": map[string]interface{}{
+								"type":        "string",
+								"description": "New text to insert (empty to remove old_text)",
+							},
+						},
+						"required": []string{"filename"},
+					},
 				},
-				"capabilities": map[string]interface{}{
-					"tools": []map[string]interface{}{
-						{
-							"name":        "edit_file",
-							"description": "Edit or create a file with partial or full replacement",
-							"inputSchema": map[string]interface{}{
-								"type": "object",
-								"properties": map[string]interface{}{
-									"filename": map[string]interface{}{
-										"type":        "string",
-										"description": "Path to the file",
-									},
-									"content": map[string]interface{}{
-										"type":        "string",
-										"description": "Full content to write (overrides partial replacement)",
-									},
-									"old_text": map[string]interface{}{
-										"type":        "string",
-										"description": "Text to be replaced",
-									},
-									"new_text": map[string]interface{}{
-										"type":        "string",
-										"description": "New text to insert (empty to remove old_text)",
-									},
-								},
-								"required": []string{"filename"},
+				{
+					"name":        "read_file",
+					"description": "Read content of a file",
+					"inputSchema": map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"filename": map[string]interface{}{
+								"type":        "string",
+								"description": "Path to the file",
 							},
 						},
-						{
-							"name":        "read_file",
-							"description": "Read content of a file",
-							"inputSchema": map[string]interface{}{
-								"type": "object",
-								"properties": map[string]interface{}{
-									"filename": map[string]interface{}{
-										"type":        "string",
-										"description": "Path to the file",
-									},
-								},
-								"required": []string{"filename"},
-							},
-						},
+						"required": []string{"filename"},
 					},
 				},
 			},
 		}
+		return resp
 	
 	case "tools/call":
 		var toolCall struct {
@@ -113,40 +146,41 @@ func handleRequest(req MCPRequest) MCPResponse {
 			Arguments json.RawMessage `json:"arguments"`
 		}
 		if err := json.Unmarshal(req.Params, &toolCall); err != nil {
-			return MCPResponse{
-				Error: &MCPError{Code: -32600, Message: "Invalid request"},
-			}
+			resp.Error = &MCPError{Code: -32600, Message: "Invalid request"}
+			return resp
 		}
 		
 		switch toolCall.Name {
 		case "edit_file":
 			var args EditFileRequest
 			if err := json.Unmarshal(toolCall.Arguments, &args); err != nil {
-				return MCPResponse{
-					Error: &MCPError{Code: -32602, Message: "Invalid arguments"},
-				}
+				resp.Error = &MCPError{Code: -32602, Message: "Invalid arguments"}
+				return resp
 			}
-			return editFile(args)
+			result := editFile(args)
+			resp.Result = result.Result
+			resp.Error = result.Error
+			return resp
 			
 		case "read_file":
 			var args ReadFileRequest
 			if err := json.Unmarshal(toolCall.Arguments, &args); err != nil {
-				return MCPResponse{
-					Error: &MCPError{Code: -32602, Message: "Invalid arguments"},
-				}
+				resp.Error = &MCPError{Code: -32602, Message: "Invalid arguments"}
+				return resp
 			}
-			return readFile(args)
+			result := readFile(args)
+			resp.Result = result.Result
+			resp.Error = result.Error
+			return resp
 			
 		default:
-			return MCPResponse{
-				Error: &MCPError{Code: -32601, Message: "Method not found"},
-			}
+			resp.Error = &MCPError{Code: -32601, Message: "Method not found"}
+			return resp
 		}
 		
 	default:
-		return MCPResponse{
-			Error: &MCPError{Code: -32601, Message: "Method not found"},
-		}
+		resp.Error = &MCPError{Code: -32601, Message: "Method not found"}
+		return resp
 	}
 }
 

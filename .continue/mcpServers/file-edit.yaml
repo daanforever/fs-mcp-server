@@ -1,0 +1,10 @@
+name: File Edit MCP server
+version: 0.0.1
+schema: v1
+mcpServers:
+  - name: File edit
+    type: stdio
+    command: "/home/dan/Projects/Personal/mcp-file-edit/mcp-file-edit"
+    args: []
+    env: {}
+
