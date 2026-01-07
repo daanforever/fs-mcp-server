@@ -46,27 +46,27 @@ echo ""
 
 # 1.1 Чтение обычного файла
 test_case "1.1 Чтение обычного файла" \
-    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":{\"filename\":\"$TEST_DIR/test.txt\"}}}' | $SERVER | jq -r '.result.content'" \
+    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":{\"filename\":\"$TEST_DIR/test.txt\"}}}' | $SERVER | jq -r '.result.content[0]'" \
     '[ "$result" == "Hello, World!" ]'
 
 # 1.2 Чтение многострочного файла
 test_case "1.2 Чтение многострочного файла" \
-    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":{\"filename\":\"$TEST_DIR/multiline.txt\"}}}' | $SERVER | jq -r '.result.content'" \
+    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":{\"filename\":\"$TEST_DIR/multiline.txt\"}}}' | $SERVER | jq -r '.result.content[0]'" \
     '[[ "$result" == *"Line 1"* ]] && [[ "$result" == *"Line 2"* ]] && [[ "$result" == *"Line 3"* ]]'
 
 # 1.3 Чтение пустого файла
 test_case "1.3 Чтение пустого файла" \
-    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":{\"filename\":\"$TEST_DIR/empty.txt\"}}}' | $SERVER | jq -r '.result.content'" \
+    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":{\"filename\":\"$TEST_DIR/empty.txt\"}}}' | $SERVER | jq -r '.result.content[0]'" \
     '[ "$result" == "" ]'
 
 # 1.4 Чтение файла с UTF-8
 test_case "1.4 Чтение файла с UTF-8" \
-    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":{\"filename\":\"$TEST_DIR/utf8.txt\"}}}' | $SERVER | jq -r '.result.content'" \
+    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":{\"filename\":\"$TEST_DIR/utf8.txt\"}}}' | $SERVER | jq -r '.result.content[0]'" \
     '[[ "$result" == *"Привет"* ]] && [[ "$result" == *"🌍"* ]]'
 
-# 1.5 Проверка формата ответа (должен быть объект с полем content)
-test_case "1.5 Формат ответа (объект с content)" \
-    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":{\"filename\":\"$TEST_DIR/test.txt\"}}}' | $SERVER | jq -e '.result.content != null'" \
+# 1.5 Проверка формата ответа (должен быть объект с полем content как массив)
+test_case "1.5 Формат ответа (объект с content как массив)" \
+    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":{\"filename\":\"$TEST_DIR/test.txt\"}}}' | $SERVER | jq -e '.result.content != null and (.result.content | type) == \"array\"'" \
     '[ $? -eq 0 ]'
 
 # 1.6 Проверка отсутствия поля status в ответе
@@ -80,22 +80,22 @@ echo ""
 
 # 2.1 Чтение обычного файла (arguments как строка)
 test_case "2.1 Чтение с arguments как строкой" \
-    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":\"{\\\"filename\\\":\\\"$TEST_DIR/test.txt\\\"}\"}}' | $SERVER | jq -r '.result.content'" \
+    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":\"{\\\"filename\\\":\\\"$TEST_DIR/test.txt\\\"}\"}}' | $SERVER | jq -r '.result.content[0]'" \
     '[ "$result" == "Hello, World!" ]'
 
 # 2.2 Чтение многострочного файла (arguments как строка)
 test_case "2.2 Многострочный файл (arguments как строка)" \
-    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":\"{\\\"filename\\\":\\\"$TEST_DIR/multiline.txt\\\"}\"}}' | $SERVER | jq -r '.result.content'" \
+    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":\"{\\\"filename\\\":\\\"$TEST_DIR/multiline.txt\\\"}\"}}' | $SERVER | jq -r '.result.content[0]'" \
     '[[ "$result" == *"Line 1"* ]] && [[ "$result" == *"Line 2"* ]] && [[ "$result" == *"Line 3"* ]]'
 
 # 2.3 Чтение пустого файла (arguments как строка)
 test_case "2.3 Пустой файл (arguments как строка)" \
-    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":\"{\\\"filename\\\":\\\"$TEST_DIR/empty.txt\\\"}\"}}' | $SERVER | jq -r '.result.content'" \
+    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":\"{\\\"filename\\\":\\\"$TEST_DIR/empty.txt\\\"}\"}}' | $SERVER | jq -r '.result.content[0]'" \
     '[ "$result" == "" ]'
 
 # 2.4 Чтение файла с UTF-8 (arguments как строка)
 test_case "2.4 UTF-8 файл (arguments как строка)" \
-    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":\"{\\\"filename\\\":\\\"$TEST_DIR/utf8.txt\\\"}\"}}' | $SERVER | jq -r '.result.content'" \
+    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":\"{\\\"filename\\\":\\\"$TEST_DIR/utf8.txt\\\"}\"}}' | $SERVER | jq -r '.result.content[0]'" \
     '[[ "$result" == *"Привет"* ]] && [[ "$result" == *"🌍"* ]]'
 
 echo ""
@@ -128,7 +128,7 @@ echo ""
 
 # 4.1 Сравнение результатов обоих форматов
 test_case "4.1 Одинаковый результат для обоих форматов" \
-    "result1=\$(echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":{\"filename\":\"$TEST_DIR/test.txt\"}}}' | $SERVER | jq -r '.result.content') && result2=\$(echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":\"{\\\"filename\\\":\\\"$TEST_DIR/test.txt\\\"}\"}}' | $SERVER | jq -r '.result.content') && [ \"\$result1\" == \"\$result2\" ]" \
+    "result1=\$(echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":{\"filename\":\"$TEST_DIR/test.txt\"}}}' | $SERVER | jq -r '.result.content[0]') && result2=\$(echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":\"{\\\"filename\\\":\\\"$TEST_DIR/test.txt\\\"}\"}}' | $SERVER | jq -r '.result.content[0]') && [ \"\$result1\" == \"\$result2\" ]" \
     '[ $? -eq 0 ]'
 
 # 4.2 Проверка работы с вложенными директориями
@@ -136,11 +136,11 @@ mkdir -p $TEST_DIR/nested/deep
 echo "Nested content" > $TEST_DIR/nested/deep/file.txt
 
 test_case "4.2 Файл во вложенной директории (объект)" \
-    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":{\"filename\":\"$TEST_DIR/nested/deep/file.txt\"}}}' | $SERVER | jq -r '.result.content'" \
+    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":{\"filename\":\"$TEST_DIR/nested/deep/file.txt\"}}}' | $SERVER | jq -r '.result.content[0]'" \
     '[ "$result" == "Nested content" ]'
 
 test_case "4.3 Файл во вложенной директории (строка)" \
-    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":\"{\\\"filename\\\":\\\"$TEST_DIR/nested/deep/file.txt\\\"}\"}}' | $SERVER | jq -r '.result.content'" \
+    "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_file\",\"arguments\":\"{\\\"filename\\\":\\\"$TEST_DIR/nested/deep/file.txt\\\"}\"}}' | $SERVER | jq -r '.result.content[0]'" \
     '[ "$result" == "Nested content" ]'
 
 echo ""

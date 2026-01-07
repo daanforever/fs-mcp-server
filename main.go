@@ -316,10 +316,10 @@ func readFile(args ReadFileRequest) MCPResponse {
 		}
 	}
 	
-	// Возвращаем объект с полем content для совместимости с различными клиентами
+	// Возвращаем объект с полем content как массив для совместимости с MCP протоколом
 	return MCPResponse{
 		Result: map[string]interface{}{
-			"content": string(content),
+			"content": []string{string(content)},
 		},
 	}
 }
