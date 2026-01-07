@@ -75,7 +75,9 @@ go build -o mcp-file-edit main.go
 **Parameters**:
 - `filename` (string, required): Path to the file
 
-**Returns**: File content as string
+**Returns**: Object with `content` field containing file content as string
+
+**Note**: The `arguments` parameter can be passed either as a JSON object or as a JSON string (for compatibility with different MCP clients)
 
 ## Error Handling
 
