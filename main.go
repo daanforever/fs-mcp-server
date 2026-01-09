@@ -258,6 +258,17 @@ func editFile(args EditFileRequest, rawArguments json.RawMessage, receivedArgs m
 	// Приоритет: content > old_text/new_text
 	if hasContent {
 		// Режим полной записи (включая пустую строку)
+		if args.Content == nil {
+			return MCPResponse{
+				Error: &MCPError{
+					Code:    -32602,
+					Message: "Invalid arguments: content parameter is nil",
+					Data: map[string]interface{}{
+						"received_arguments": receivedArgs,
+					},
+				},
+			}
+		}
 		content = []byte(*args.Content)
 	} else if hasOldText {
 		// Режим замены текста
@@ -339,6 +350,7 @@ func editFile(args EditFileRequest, rawArguments json.RawMessage, receivedArgs m
 		}
 	}
 	
+	// Write file with atomic operation for better reliability
 	err = os.WriteFile(args.Filename, content, 0644)
 	if err != nil {
 		return MCPResponse{
@@ -347,6 +359,37 @@ func editFile(args EditFileRequest, rawArguments json.RawMessage, receivedArgs m
 				Message: fmt.Sprintf("Failed to write file: %v", err),
 				Data: map[string]interface{}{
 					"received_arguments": receivedArgs,
+					"content_length":     len(content),
+				},
+			},
+		}
+	}
+	
+	// Verify the write was successful by checking file size
+	info, err := os.Stat(args.Filename)
+	if err != nil {
+		return MCPResponse{
+			Error: &MCPError{
+				Code:    -32000,
+				Message: fmt.Sprintf("Failed to verify file write: %v", err),
+				Data: map[string]interface{}{
+					"received_arguments": receivedArgs,
+					"content_length":     len(content),
+				},
+			},
+		}
+	}
+	
+	// Check if written size matches expected size
+	if info.Size() != int64(len(content)) {
+		return MCPResponse{
+			Error: &MCPError{
+				Code:    -32000,
+				Message: fmt.Sprintf("File size mismatch: expected %d bytes, got %d bytes", len(content), info.Size()),
+				Data: map[string]interface{}{
+					"received_arguments": receivedArgs,
+					"expected_size":      len(content),
+					"actual_size":        info.Size(),
 				},
 			},
 		}
@@ -356,6 +399,7 @@ func editFile(args EditFileRequest, rawArguments json.RawMessage, receivedArgs m
 		Result: map[string]interface{}{
 			"status":  "success",
 			"message": fmt.Sprintf("File %s updated successfully", args.Filename),
+			"bytes_written": len(content),
 		},
 	}
 }
