@@ -27,6 +27,7 @@ type MCPResponse struct {
 type MCPError struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
 }
 
 type EditFileRequest struct {
@@ -176,23 +177,53 @@ func handleRequest(req MCPRequest) MCPResponse {
 		
 		switch toolCall.Name {
 		case "edit_file":
+			// Парсим аргументы для отображения в ошибках (даже если они невалидны)
+			var rawArgs map[string]interface{}
+			json.Unmarshal(arguments, &rawArgs)
+			// Если не удалось распарсить, включаем raw строку
+			if rawArgs == nil {
+				rawArgs = make(map[string]interface{})
+				rawArgs["_raw"] = string(arguments)
+			}
+			
 			var args EditFileRequest
 			if err := json.Unmarshal(arguments, &args); err != nil {
-				resp.Error = &MCPError{Code: -32602, Message: fmt.Sprintf("Invalid arguments: %v", err)}
+				resp.Error = &MCPError{
+					Code:    -32602,
+					Message: fmt.Sprintf("Invalid arguments: %v", err),
+					Data: map[string]interface{}{
+						"received_arguments": rawArgs,
+					},
+				}
 				return resp
 			}
-			result := editFile(args)
+			result := editFile(args, arguments, rawArgs)
 			resp.Result = result.Result
 			resp.Error = result.Error
 			return resp
 			
 		case "read_file":
+			// Парсим аргументы для отображения в ошибках (даже если они невалидны)
+			var rawArgs map[string]interface{}
+			json.Unmarshal(arguments, &rawArgs)
+			// Если не удалось распарсить, включаем raw строку
+			if rawArgs == nil {
+				rawArgs = make(map[string]interface{})
+				rawArgs["_raw"] = string(arguments)
+			}
+			
 			var args ReadFileRequest
 			if err := json.Unmarshal(arguments, &args); err != nil {
-				resp.Error = &MCPError{Code: -32602, Message: fmt.Sprintf("Invalid arguments: %v", err)}
+				resp.Error = &MCPError{
+					Code:    -32602,
+					Message: fmt.Sprintf("Invalid arguments: %v", err),
+					Data: map[string]interface{}{
+						"received_arguments": rawArgs,
+					},
+				}
 				return resp
 			}
-			result := readFile(args)
+			result := readFile(args, arguments, rawArgs)
 			resp.Result = result.Result
 			resp.Error = result.Error
 			return resp
@@ -208,7 +239,7 @@ func handleRequest(req MCPRequest) MCPResponse {
 	}
 }
 
-func editFile(args EditFileRequest) MCPResponse {
+func editFile(args EditFileRequest, rawArguments json.RawMessage, receivedArgs map[string]interface{}) MCPResponse {
 	// Создаем директории если нужно
 	dir := filepath.Dir(args.Filename)
 	if dir != "." && dir != "" {
@@ -233,7 +264,13 @@ func editFile(args EditFileRequest) MCPResponse {
 		content, err = os.ReadFile(args.Filename)
 		if err != nil && !os.IsNotExist(err) {
 			return MCPResponse{
-				Error: &MCPError{Code: -32000, Message: fmt.Sprintf("Failed to read file: %v", err)},
+				Error: &MCPError{
+					Code:    -32000,
+					Message: fmt.Sprintf("Failed to read file: %v", err),
+					Data: map[string]interface{}{
+						"received_arguments": receivedArgs,
+					},
+				},
 			}
 		}
 		
@@ -269,7 +306,13 @@ func editFile(args EditFileRequest) MCPResponse {
 		current, err := os.ReadFile(args.Filename)
 		if err != nil && !os.IsNotExist(err) {
 			return MCPResponse{
-				Error: &MCPError{Code: -32000, Message: fmt.Sprintf("Failed to read file: %v", err)},
+				Error: &MCPError{
+					Code:    -32000,
+					Message: fmt.Sprintf("Failed to read file: %v", err),
+					Data: map[string]interface{}{
+						"received_arguments": receivedArgs,
+					},
+				},
 			}
 		}
 		fileContent := string(current)
@@ -289,6 +332,9 @@ func editFile(args EditFileRequest) MCPResponse {
 			Error: &MCPError{
 				Code:    -32602,
 				Message: "Invalid arguments: must provide either 'content' (for full write), 'old_string' (for replacement/removal), or 'new_string' (for append)",
+				Data: map[string]interface{}{
+					"received_arguments": receivedArgs,
+				},
 			},
 		}
 	}
@@ -296,7 +342,13 @@ func editFile(args EditFileRequest) MCPResponse {
 	err = os.WriteFile(args.Filename, content, 0644)
 	if err != nil {
 		return MCPResponse{
-			Error: &MCPError{Code: -32000, Message: fmt.Sprintf("Failed to write file: %v", err)},
+			Error: &MCPError{
+				Code:    -32000,
+				Message: fmt.Sprintf("Failed to write file: %v", err),
+				Data: map[string]interface{}{
+					"received_arguments": receivedArgs,
+				},
+			},
 		}
 	}
 	
@@ -308,18 +360,30 @@ func editFile(args EditFileRequest) MCPResponse {
 	}
 }
 
-func readFile(args ReadFileRequest) MCPResponse {
+func readFile(args ReadFileRequest, rawArguments json.RawMessage, receivedArgs map[string]interface{}) MCPResponse {
 	content, err := os.ReadFile(args.Filename)
 	if err != nil {
 		return MCPResponse{
-			Error: &MCPError{Code: -32000, Message: fmt.Sprintf("Failed to read file: %v", err)},
+			Error: &MCPError{
+				Code:    -32000,
+				Message: fmt.Sprintf("Failed to read file: %v", err),
+				Data: map[string]interface{}{
+					"received_arguments": receivedArgs,
+				},
+			},
 		}
 	}
 	
-	// Возвращаем объект с полем content как массив для совместимости с MCP протоколом
+	// Возвращаем объект с полем content как массив объектов для совместимости с MCP протоколом
+	// Формат: [{"type": "text", "text": "..."}]
 	return MCPResponse{
 		Result: map[string]interface{}{
-			"content": []string{string(content)},
+			"content": []map[string]interface{}{
+				{
+					"type": "text",
+					"text": string(content),
+				},
+			},
 		},
 	}
 }
