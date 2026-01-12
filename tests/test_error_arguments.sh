@@ -2,43 +2,14 @@
 
 # Тесты для проверки, что ошибки содержат переданные аргументы
 
+# Source helper functions
+source "$(dirname "$0")/helper.sh"
+
 echo "=== Тестирование ошибок с переданными аргументами ==="
 echo ""
 
 PASSED=0
 FAILED=0
-
-# Функция для проверки наличия received_arguments в ошибке
-check_error_has_arguments() {
-    local test_name="$1"
-    local response="$2"
-    local expected_arg="$3"
-    
-    echo "Тест: $test_name"
-    
-    # Проверяем наличие поля error.data.received_arguments
-    if echo "$response" | jq -e '.error.data.received_arguments' > /dev/null 2>&1; then
-        # Если указан ожидаемый аргумент, проверяем его наличие
-        if [ -n "$expected_arg" ]; then
-            if echo "$response" | jq -e ".error.data.received_arguments.$expected_arg" > /dev/null 2>&1; then
-                echo "  ✓ PASS: Ошибка содержит received_arguments с $expected_arg"
-                ((PASSED++))
-            else
-                echo "  ✗ FAIL: Ошибка не содержит $expected_arg в received_arguments"
-                echo "  Ответ: $response"
-                ((FAILED++))
-            fi
-        else
-            echo "  ✓ PASS: Ошибка содержит received_arguments"
-            ((PASSED++))
-        fi
-    else
-        echo "  ✗ FAIL: Ошибка не содержит поле data.received_arguments"
-        echo "  Ответ: $response"
-        ((FAILED++))
-    fi
-    echo ""
-}
 
 # Тест 1: edit_file без обязательных параметров
 echo "--- Тест 1: edit_file без обязательных параметров ---"
@@ -114,14 +85,6 @@ echo "$RESPONSE" | jq .
 
 # Итоги
 echo "=== Итоги тестирования ==="
-echo "Пройдено: $PASSED"
-echo "Провалено: $FAILED"
-TOTAL=$((PASSED + FAILED))
-if [ $FAILED -eq 0 ]; then
-    echo "✓ Все тесты пройдены успешно!"
-    exit 0
-else
-    echo "✗ Некоторые тесты провалены"
-    exit 1
-fi
+print_test_results
+exit $?
 

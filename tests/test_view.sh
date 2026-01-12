@@ -3,7 +3,9 @@
 # Тесты для функции view (alias для read_file)
 # Проверяет, что view работает идентично read_file
 
-SERVER="./mcp-file-edit"
+# Source helper functions
+source "$(dirname "$0")/helper.sh"
+
 TEST_DIR="test_view_dir"
 rm -rf $TEST_DIR
 mkdir -p $TEST_DIR
@@ -11,6 +13,7 @@ mkdir -p $TEST_DIR
 PASSED=0
 FAILED=0
 
+# Override test_case to add timeout handling
 test_case() {
     local name="$1"
     local test_cmd="$2"
@@ -18,8 +21,10 @@ test_case() {
     
     echo -n "  $name: "
     # Add timeout to prevent hanging
+    set +e
     result=$(timeout 10 bash -c "$test_cmd" 2>/dev/null)
     timeout_exit=$?
+    set -e
     
     if [ $timeout_exit -eq 124 ]; then
         echo "FAIL (timeout)"
@@ -161,19 +166,9 @@ test_case "5.2 Файл во вложенной директории (строк
     "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"view\",\"arguments\":\"{\\\"filename\\\":\\\"$TEST_DIR/nested/deep/file.txt\\\"}\"}}' | $SERVER | jq -r '.result.content[0].text'" \
     '[ "$result" == "Nested content" ]'
 
-echo ""
-echo "=== Результаты ==="
-echo "Пройдено: $PASSED"
-echo "Провалено: $FAILED"
-echo ""
-
 # Очистка
 rm -rf $TEST_DIR
 
-if [ $FAILED -eq 0 ]; then
-    echo "Все тесты пройдены успешно!"
-    exit 0
-else
-    echo "Некоторые тесты провалились."
-    exit 1
-fi
+# Print results and exit
+print_test_results
+exit $?

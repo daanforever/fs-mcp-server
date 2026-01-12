@@ -4,30 +4,30 @@
 
 set -e
 
-SERVER="./mcp-file-edit"
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-NC='\033[0m'
+# Source helper functions
+source "$(dirname "$0")/helper.sh"
 
-pass_count=0
-fail_count=0
+# Use PASSED/FAILED instead of pass_count/fail_count for consistency
+PASSED=0
+FAILED=0
 
+# Override run_test to use PASSED/FAILED instead of pass_count/fail_count
 run_test() {
     local name="$1"
     local request="$2"
     local expected_check="$3"
     
     echo -n "Test: $name ... "
-    result=$(echo "$request" | $SERVER 2>/dev/null)
+    result=$(echo "$request" | "$SERVER" 2>/dev/null)
     
     if eval "$expected_check"; then
-        echo -e "${GREEN}PASS${NC}"
-        ((pass_count++))
+        echo -e "\033[0;32mPASS\033[0m"
+        ((PASSED++))
     else
-        echo -e "${RED}FAIL${NC}"
+        echo -e "\033[0;31mFAIL\033[0m"
         echo "  Request: $request"
         echo "  Result: $result"
-        ((fail_count++))
+        ((FAILED++))
     fi
 }
 
@@ -158,18 +158,9 @@ run_test "Перезапись существующего файла" \
     echo '{"method": "tools/call", "params": {"name": "edit_file", "arguments": {"filename": "test_dir/rewrite.txt", "content": "NEW"}}}' | $SERVER >/dev/null 2>&1 && \
     [ "$(cat test_dir/rewrite.txt)" == "NEW" ]
 
-echo ""
-echo "=== Итоги ==="
-echo "Пройдено: $pass_count"
-echo "Провалено: $fail_count"
-
 # Очистка
 rm -rf test_dir
 
-if [ $fail_count -eq 0 ]; then
-    echo -e "${GREEN}Все тесты пройдены!${NC}"
-    exit 0
-else
-    echo -e "${RED}Некоторые тесты не пройдены!${NC}"
-    exit 1
-fi
+# Print results and exit
+print_test_results
+exit $?

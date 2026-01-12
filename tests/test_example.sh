@@ -2,27 +2,30 @@
 
 # Пример использования MCP сервера
 
+# Source helper functions
+source "$(dirname "$0")/helper.sh"
+
 echo "=== Тестирование MCP File Edit Server ==="
 echo ""
 
 # 1. Инициализация
 echo "1. Инициализация сервера:"
-echo '{"method": "initialize", "params": {}}' | ./mcp-file-edit | jq .
+send_mcp_request '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | jq .
 echo ""
 
 # 2. Создание файла
 echo "2. Создание файла example.go:"
-echo '{"method": "tools/call", "params": {"name": "edit_file", "arguments": {"filename": "example.go", "content": "package main\n\nfunc main() {\n\tprintln(\"Hello, MCP!\")\n}\n"}}}' | ./mcp-file-edit | jq .
+send_mcp_request '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"edit_file","arguments":{"filename":"example.go","content":"package main\n\nfunc main() {\n\tprintln(\"Hello, MCP!\")\n}\n"}}}' | jq .
 echo ""
 
 # 3. Чтение файла
 echo "3. Чтение файла example.go:"
-echo '{"method": "tools/call", "params": {"name": "read_file", "arguments": {"filename": "example.go"}}}' | ./mcp-file-edit | jq .
+send_mcp_request '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"read_file","arguments":{"filename":"example.go"}}}' | jq .
 echo ""
 
 # 4. Создание файла в поддиректории
 echo "4. Создание файла в поддиректории:"
-echo '{"method": "tools/call", "params": {"name": "edit_file", "arguments": {"filename": "notes/readme.txt", "content": "Это файл в поддиректории."}}}' | ./mcp-file-edit | jq .
+send_mcp_request '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"edit_file","arguments":{"filename":"notes/readme.txt","content":"Это файл в поддиректории."}}}' | jq .
 echo ""
 
 # Проверка созданных файлов
