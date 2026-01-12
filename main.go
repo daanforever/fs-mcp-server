@@ -69,6 +69,12 @@ func main() {
 			continue
 		}
 		
+		// Если ID отсутствует или равен null - это уведомление (notification)
+		// Согласно JSON-RPC 2.0, на уведомления НЕ нужно отправлять ответ
+		if req.ID == nil {
+			continue
+		}
+		
 		resp := handleRequest(req)
 		if err := encoder.Encode(resp); err != nil {
 			// Если не удалось отправить ответ, выходим
