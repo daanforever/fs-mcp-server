@@ -205,6 +205,20 @@ func handleRequest(req MCPRequest) MCPResponse {
 					},
 				},
 				{
+					"name":        "view",
+					"description": "Read content of a file (alias for read_file)",
+					"inputSchema": map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"filename": map[string]interface{}{
+								"type":        "string",
+								"description": "Path to the file",
+							},
+						},
+						"required": []string{"filename"},
+					},
+				},
+				{
 					"name":        "exec",
 					"description": "Execute a shell command in a specified or current working directory",
 					"inputSchema": map[string]interface{}{
@@ -278,6 +292,33 @@ func handleRequest(req MCPRequest) MCPResponse {
 			return resp
 			
 		case "read_file":
+			// Парсим аргументы для отображения в ошибках (даже если они невалидны)
+			var rawArgs map[string]interface{}
+			json.Unmarshal(arguments, &rawArgs)
+			// Если не удалось распарсить, включаем raw строку
+			if rawArgs == nil {
+				rawArgs = make(map[string]interface{})
+				rawArgs["_raw"] = string(arguments)
+			}
+			
+			var args ReadFileRequest
+			if err := json.Unmarshal(arguments, &args); err != nil {
+				resp.Error = &MCPError{
+					Code:    -32602,
+					Message: fmt.Sprintf("Invalid arguments: %v", err),
+					Data: map[string]interface{}{
+						"received_arguments": rawArgs,
+					},
+				}
+				return resp
+			}
+			result := readFile(args, arguments, rawArgs)
+			resp.Result = result.Result
+			resp.Error = result.Error
+			return resp
+			
+		case "view":
+			// Alias for read_file - same implementation
 			// Парсим аргументы для отображения в ошибках (даже если они невалидны)
 			var rawArgs map[string]interface{}
 			json.Unmarshal(arguments, &rawArgs)
