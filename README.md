@@ -1,108 +1,108 @@
 # MCP File Edit Server
 
-Простой MCP (Model Context Protocol) сервер на Go для редактирования файлов.
+A simple Go-based MCP (Model Context Protocol) server for file editing operations.
 
-## Возможности
+## Features
 
-- **edit_file** - создание/редактирование файлов с частичной или полной заменой
-- **read_file** - чтение содержимого файлов
-- **view** - чтение содержимого файлов (алиас для read_file)
-- **exec** - выполнение shell команд с поддержкой таймаута и рабочей директории
+- **edit_file** - Create/edit files with partial or full replacement
+- **read_file** - Read file contents
+- **view** - Read file contents (alias for read_file)
+- **exec** - Execute shell commands with timeout and working directory support
 
-## Параметры edit_file
+## edit_file Parameters
 
-| Параметр | Описание |
-|----------|----------|
-| `filename` | Путь к файлу (обязательный) |
-| `content` | Полное содержимое файла (приоритетнее old_string/old_text) |
-| `old_string` | Текст для замены (приоритетнее old_text) |
-| `new_string` | Новый текст (если пустой - удаляет old_string) |
-| `old_text` | Текст для замены (устаревший, используйте old_string) |
-| `new_text` | Новый текст (устаревший, используйте new_string) |
+| Parameter | Description |
+|-----------|-------------|
+| `filename` | Path to the file (required) |
+| `content` | Full file content (takes priority over old_string/old_text) |
+| `old_string` | Text to replace (takes priority over old_text) |
+| `new_string` | New text (empty to remove old_string) |
+| `old_text` | Text to replace (deprecated, use old_string) |
+| `new_text` | New text (deprecated, use new_string) |
 
-**Примечание**: Поддерживаются как `old_string`/`new_string`, так и `old_text`/`new_text` для обратной совместимости. `old_string`/`new_string` имеют приоритет.
+**Note**: Both `old_string`/`new_string` and `old_text`/`new_text` are supported for backward compatibility. `old_string`/`new_string` take priority.
 
-### Режимы работы:
+### Operating Modes:
 
-1. **Полная запись** (`content`): Записывает файл целиком
-2. **Частичная замена** (`old_string`/`old_text` + `new_string`/`new_text`): Заменяет текст
-3. **Удаление** (`old_string`/`old_text` без `new_string`/`new_text`): Удаляет указанный текст
-4. **Добавление** (только `new_string`/`new_text`): Добавляет в конец файла
-5. **Полная замена** (`old_string`/`old_text: "*"` + `new_string`/`new_text`): Заменяет всё содержимое
+1. **Full write** (`content`): Writes entire file content
+2. **Partial replacement** (`old_string`/`old_text` + `new_string`/`new_text`): Replaces text
+3. **Deletion** (`old_string`/`old_text` without `new_string`/`new_text`): Removes specified text
+4. **Append** (only `new_string`/`new_text`): Adds to end of file
+5. **Full replacement** (`old_string`/`old_text: "*"` + `new_string`/`new_text`): Replaces entire content
 
-## Параметры read_file
+## read_file Parameters
 
-| Параметр | Описание |
-|----------|----------|
-| `filename` | Путь к файлу (обязательный) |
+| Parameter | Description |
+|-----------|-------------|
+| `filename` | Path to the file (required) |
 
-**Возвращаемое значение**: Объект с полем `content`, содержащим массив объектов формата `[{"type": "text", "text": "содержимое файла"}]` для совместимости с MCP протоколом.
+**Return Value**: Object with `content` field containing an array of objects in format `[{"type": "text", "text": "file content"}]` for MCP protocol compatibility.
 
-## Параметры view
+## view Parameters
 
-| Параметр | Описание |
-|----------|----------|
-| `filename` | Путь к файлу (обязательный) |
+| Parameter | Description |
+|-----------|-------------|
+| `filename` | Path to the file (required) |
 
-**Примечание**: `view` является алиасом для `read_file` и имеет идентичную функциональность. Возвращает тот же формат данных.
+**Note**: `view` is an alias for `read_file` with identical functionality. Returns the same data format.
 
-## Параметры exec
+## exec Parameters
 
-| Параметр | Описание |
-|----------|----------|
-| `command` | Shell команда для выполнения (обязательный) |
-| `work_dir` | Рабочая директория для выполнения команды (опционально, по умолчанию - текущая директория) |
-| `timeout` | Таймаут в секундах (опционально, по умолчанию: 300 секунд / 5 минут) |
+| Parameter | Description |
+|-----------|-------------|
+| `command` | Shell command to execute (required) |
+| `work_dir` | Working directory for command execution (optional, default: current directory) |
+| `timeout` | Timeout in seconds (optional, default: 300 seconds / 5 minutes) |
 
-**Возвращаемое значение**: Объект с полями:
-- `stdout` - стандартный вывод команды
-- `stderr` - стандартный поток ошибок
-- `exit_code` - код возврата команды (0 при успехе)
-- `status` - статус выполнения ("success" или "failed")
-- `timeout` - булево значение, указывающее, был ли превышен таймаут
+**Return Value**: Object with fields:
+- `stdout` - command standard output
+- `stderr` - standard error stream
+- `exit_code` - command exit code (0 on success)
+- `status` - execution status ("success" or "failed")
+- `timeout` - boolean indicating if timeout was exceeded
 
-**Примечание**: Команда выполняется через `bash -c`. При завершении сервера все активные команды автоматически завершаются (SIGTERM, затем SIGKILL при необходимости).
+**Note**: Commands are executed via `bash -c`. All active commands are automatically terminated when the server stops (SIGTERM, then SIGKILL if needed).
 
-## Установка
+## Installation
 
 ```bash
 go mod tidy
 go build -o mcp-file-edit main.go
 ```
 
-## Примеры использования
+## Usage Examples
 
-### Полная запись
+### Full write
 ```bash
 echo '{"method": "tools/call", "params": {"name": "edit_file", "arguments": {"filename": "test.txt", "content": "Hello World!"}}}' | ./mcp-file-edit
 ```
 
-### Частичная замена
+### Partial replacement
 ```bash
 echo '{"method": "tools/call", "params": {"name": "edit_file", "arguments": {"filename": "test.txt", "old_text": "old", "new_text": "new"}}}' | ./mcp-file-edit
 ```
 
-### Удаление текста
+### Text deletion
 ```bash
 echo '{"method": "tools/call", "params": {"name": "edit_file", "arguments": {"filename": "test.txt", "old_text": "remove this"}}}' | ./mcp-file-edit
 ```
 
-### Добавление в конец
+### Append to file
 ```bash
 echo '{"method": "tools/call", "params": {"name": "edit_file", "arguments": {"filename": "test.txt", "new_text": "new line"}}}' | ./mcp-file-edit
 ```
 
-### Чтение файла
+### Read file
 ```bash
 echo '{"method": "tools/call", "params": {"name": "read_file", "arguments": {"filename": "test.txt"}}}' | ./mcp-file-edit
 ```
 
-### Чтение файла (view - алиас для read_file)
+### Read file (view - alias for read_file)
 ```bash
 echo '{"method": "tools/call", "params": {"name": "view", "arguments": {"filename": "test.txt"}}}' | ./mcp-file-edit
 ```
 
-### Выполнение команды
+### Execute command
 ```bash
 echo '{"method": "tools/call", "params": {"name": "exec", "arguments": {"command": "ls -la", "work_dir": "/tmp", "timeout": 60}}}' | ./mcp-file-edit
 ```

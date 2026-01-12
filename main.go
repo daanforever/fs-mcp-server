@@ -5,8 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -66,7 +68,31 @@ var activeCommands = &commandTracker{
 	commands: make(map[*exec.Cmd]context.CancelFunc),
 }
 
+var (
+	debugMode   bool
+	logFile     *os.File
+	logMutex    sync.Mutex
+)
+
 func main() {
+	// Parse command line flags
+	flag.BoolVar(&debugMode, "debug", false, "Enable debug logging to mcp.log")
+	flag.Parse()
+	
+	// Initialize debug logging if enabled
+	if debugMode {
+		var err error
+		logFile, err = os.OpenFile("mcp.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to open log file: %v\n", err)
+			os.Exit(1)
+		}
+		defer logFile.Close()
+		log.SetOutput(logFile)
+		log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
+		log.Println("=== MCP Server started in debug mode ===")
+	}
+	
 	// Create root context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -100,6 +126,12 @@ func main() {
 				cleanupCommands()
 				return
 			}
+			// Логируем ошибку декодирования
+			if debugMode && logFile != nil {
+				logMutex.Lock()
+				log.Printf("[DECODE ERROR] %v\n", err)
+				logMutex.Unlock()
+			}
 			// Отправляем ошибку парсинга, если есть ID
 			if req.ID != nil {
 				resp := MCPResponse{
@@ -110,10 +142,14 @@ func main() {
 						Message: fmt.Sprintf("Parse error: %v", err),
 					},
 				}
+				logResponse(&resp)
 				encoder.Encode(resp)
 			}
 			continue
 		}
+		
+		// Логируем запрос
+		logRequest(&req, nil)
 		
 		// Если ID отсутствует или равен null - это уведомление (notification)
 		// Согласно JSON-RPC 2.0, на уведомления НЕ нужно отправлять ответ
@@ -122,6 +158,7 @@ func main() {
 		}
 		
 		resp := handleRequest(req)
+		logResponse(&resp)
 		if err := encoder.Encode(resp); err != nil {
 			// Если не удалось отправить ответ, выходим
 			cleanupCommands()
@@ -704,6 +741,44 @@ func execCommand(args ExecRequest, rawArguments json.RawMessage, receivedArgs ma
 	}
 }
 
+func logRequest(req *MCPRequest, rawData []byte) {
+	if !debugMode || logFile == nil {
+		return
+	}
+	
+	logMutex.Lock()
+	defer logMutex.Unlock()
+	
+	reqJSON, err := json.MarshalIndent(req, "", "  ")
+	if err != nil {
+		log.Printf("[REQUEST] Error marshaling request: %v\n", err)
+		return
+	}
+	
+	log.Printf("[REQUEST]\n%s\n", string(reqJSON))
+	if rawData != nil && len(rawData) > 0 {
+		log.Printf("[REQUEST RAW DATA]\n%s\n", string(rawData))
+	}
+}
+
+func logResponse(resp *MCPResponse) {
+	if !debugMode || logFile == nil {
+		return
+	}
+	
+	logMutex.Lock()
+	defer logMutex.Unlock()
+	
+	respJSON, err := json.MarshalIndent(resp, "", "  ")
+	if err != nil {
+		log.Printf("[RESPONSE] Error marshaling response: %v\n", err)
+		return
+	}
+	
+	log.Printf("[RESPONSE]\n%s\n", string(respJSON))
+	log.Println("---")
+}
+
 func cleanupCommands() {
 	// Copy commands and cancels while holding lock to avoid race condition
 	activeCommands.mu.Lock()
@@ -743,5 +818,10 @@ func cleanupCommands() {
 				cmd.Process.Kill()
 			}
 		}
+	}
+	
+	// Log shutdown if debug mode is enabled
+	if debugMode && logFile != nil {
+		log.Println("=== MCP Server shutting down ===")
 	}
 }
