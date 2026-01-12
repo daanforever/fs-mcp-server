@@ -1,13 +1,20 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
+	"syscall"
+	"time"
 )
 
 type MCPRequest struct {
@@ -44,14 +51,53 @@ type ReadFileRequest struct {
 	Filename string `json:"filename"`
 }
 
+type ExecRequest struct {
+	Command string  `json:"command"`
+	Timeout *int    `json:"timeout,omitempty"` // Timeout in seconds, default: 300 (5 minutes)
+	WorkDir *string `json:"work_dir,omitempty"` // Working directory for command execution (default: current working directory)
+}
+
+type commandTracker struct {
+	mu       sync.Mutex
+	commands map[*exec.Cmd]context.CancelFunc
+}
+
+var activeCommands = &commandTracker{
+	commands: make(map[*exec.Cmd]context.CancelFunc),
+}
+
 func main() {
+	// Create root context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	
+	// Set up signal handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
+	
+	// Handle signals in a goroutine
+	go func() {
+		<-sigChan
+		cancel()
+		cleanupCommands()
+	}()
+	
 	decoder := json.NewDecoder(os.Stdin)
 	encoder := json.NewEncoder(os.Stdout)
 	
 	for {
+		// Check if context is cancelled
+		select {
+		case <-ctx.Done():
+			cleanupCommands()
+			return
+		default:
+		}
+		
 		var req MCPRequest
 		if err := decoder.Decode(&req); err != nil {
 			if errors.Is(err, io.EOF) {
+				cleanupCommands()
 				return
 			}
 			// Отправляем ошибку парсинга, если есть ID
@@ -78,6 +124,7 @@ func main() {
 		resp := handleRequest(req)
 		if err := encoder.Encode(resp); err != nil {
 			// Если не удалось отправить ответ, выходим
+			cleanupCommands()
 			return
 		}
 	}
@@ -157,6 +204,28 @@ func handleRequest(req MCPRequest) MCPResponse {
 						"required": []string{"filename"},
 					},
 				},
+				{
+					"name":        "exec",
+					"description": "Execute a shell command in a specified or current working directory",
+					"inputSchema": map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"command": map[string]interface{}{
+								"type":        "string",
+								"description": "The shell command to execute",
+							},
+							"timeout": map[string]interface{}{
+								"type":        "integer",
+								"description": "Timeout in seconds (default: 300, i.e., 5 minutes)",
+							},
+							"work_dir": map[string]interface{}{
+								"type":        "string",
+								"description": "Working directory for command execution (default: current working directory)",
+							},
+						},
+						"required": []string{"command"},
+					},
+				},
 			},
 		}
 		return resp
@@ -230,6 +299,32 @@ func handleRequest(req MCPRequest) MCPResponse {
 				return resp
 			}
 			result := readFile(args, arguments, rawArgs)
+			resp.Result = result.Result
+			resp.Error = result.Error
+			return resp
+			
+		case "exec":
+			// Парсим аргументы для отображения в ошибках (даже если они невалидны)
+			var rawArgs map[string]interface{}
+			json.Unmarshal(arguments, &rawArgs)
+			// Если не удалось распарсить, включаем raw строку
+			if rawArgs == nil {
+				rawArgs = make(map[string]interface{})
+				rawArgs["_raw"] = string(arguments)
+			}
+			
+			var args ExecRequest
+			if err := json.Unmarshal(arguments, &args); err != nil {
+				resp.Error = &MCPError{
+					Code:    -32602,
+					Message: fmt.Sprintf("Invalid arguments: %v", err),
+					Data: map[string]interface{}{
+						"received_arguments": rawArgs,
+					},
+				}
+				return resp
+			}
+			result := execCommand(args, arguments, rawArgs)
 			resp.Result = result.Result
 			resp.Error = result.Error
 			return resp
@@ -435,5 +530,177 @@ func readFile(args ReadFileRequest, rawArguments json.RawMessage, receivedArgs m
 				},
 			},
 		},
+	}
+}
+
+func execCommand(args ExecRequest, rawArguments json.RawMessage, receivedArgs map[string]interface{}) MCPResponse {
+	// Determine timeout
+	timeout := 300 // Default: 5 minutes
+	if args.Timeout != nil {
+		timeout = *args.Timeout
+	}
+	
+	// Validate work_dir if provided
+	if args.WorkDir != nil {
+		info, err := os.Stat(*args.WorkDir)
+		if err != nil {
+			return MCPResponse{
+				Error: &MCPError{
+					Code:    -32602,
+					Message: fmt.Sprintf("Invalid work_dir: %v", err),
+					Data: map[string]interface{}{
+						"received_arguments": receivedArgs,
+					},
+				},
+			}
+		}
+		if !info.IsDir() {
+			return MCPResponse{
+				Error: &MCPError{
+					Code:    -32602,
+					Message: fmt.Sprintf("work_dir is not a directory: %s", *args.WorkDir),
+					Data: map[string]interface{}{
+						"received_arguments": receivedArgs,
+					},
+				},
+			}
+		}
+	}
+	
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	defer cancel()
+	
+	// Create command
+	cmd := exec.CommandContext(ctx, "bash", "-c", args.Command)
+	
+	// Set working directory if provided
+	if args.WorkDir != nil {
+		cmd.Dir = *args.WorkDir
+	}
+	
+	// Capture stdout and stderr
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+	
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		return MCPResponse{
+			Error: &MCPError{
+				Code:    -32000,
+				Message: fmt.Sprintf("Failed to start command: %v", err),
+				Data: map[string]interface{}{
+					"received_arguments": receivedArgs,
+				},
+			},
+		}
+	}
+	
+	// Register command with tracker (only after successful start)
+	activeCommands.mu.Lock()
+	activeCommands.commands[cmd] = cancel
+	activeCommands.mu.Unlock()
+	
+	// Unregister when done
+	defer func() {
+		activeCommands.mu.Lock()
+		delete(activeCommands.commands, cmd)
+		activeCommands.mu.Unlock()
+	}()
+	
+	// Wait for command to complete
+	err := cmd.Wait()
+	
+	// Get exit code
+	exitCode := 0
+	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			exitCode = exitError.ExitCode()
+		} else {
+			// Check if it's a timeout
+			if ctx.Err() == context.DeadlineExceeded {
+				return MCPResponse{
+					Error: &MCPError{
+						Code:    -32000,
+						Message: fmt.Sprintf("Command timed out after %d seconds", timeout),
+						Data: map[string]interface{}{
+							"received_arguments": receivedArgs,
+							"timeout":            timeout,
+						},
+					},
+				}
+			}
+			return MCPResponse{
+				Error: &MCPError{
+					Code:    -32000,
+					Message: fmt.Sprintf("Command execution error: %v", err),
+					Data: map[string]interface{}{
+						"received_arguments": receivedArgs,
+					},
+				},
+			}
+		}
+	}
+	
+	// Determine status
+	status := "success"
+	if exitCode != 0 {
+		status = "failed"
+	}
+	
+	// Check for timeout
+	timedOut := ctx.Err() == context.DeadlineExceeded
+	
+	return MCPResponse{
+		Result: map[string]interface{}{
+			"stdout":    stdoutBuf.String(),
+			"stderr":    stderrBuf.String(),
+			"exit_code": exitCode,
+			"status":    status,
+			"timeout":   timedOut,
+		},
+	}
+}
+
+func cleanupCommands() {
+	// Copy commands and cancels while holding lock to avoid race condition
+	activeCommands.mu.Lock()
+	cmds := make([]*exec.Cmd, 0, len(activeCommands.commands))
+	cancels := make([]context.CancelFunc, 0, len(activeCommands.commands))
+	for cmd, cancel := range activeCommands.commands {
+		cmds = append(cmds, cmd)
+		cancels = append(cancels, cancel)
+	}
+	activeCommands.mu.Unlock()
+	
+	// Cancel contexts and send SIGTERM
+	for i, cmd := range cmds {
+		cancels[i]() // Cancel context first
+		if cmd.Process != nil && cmd.ProcessState == nil {
+			cmd.Process.Signal(syscall.SIGTERM)
+		}
+	}
+	
+	// Wait for processes to terminate (with timeout)
+	done := make(chan struct{})
+	go func() {
+		for _, cmd := range cmds {
+			if cmd.Process != nil && cmd.ProcessState == nil {
+				cmd.Process.Wait()
+			}
+		}
+		close(done)
+	}()
+	
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		// Force kill if still running after 5 seconds
+		for _, cmd := range cmds {
+			if cmd.Process != nil && cmd.ProcessState == nil {
+				cmd.Process.Kill()
+			}
+		}
 	}
 }
