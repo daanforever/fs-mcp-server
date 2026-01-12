@@ -35,8 +35,17 @@ A simple Go-based MCP (Model Context Protocol) server for file editing operation
 | Parameter | Description |
 |-----------|-------------|
 | `filename` | Path to the file (required) |
+| `start_line` | Starting line number (1-based, optional) |
+| `end_line` | Ending line number (1-based, inclusive, optional) |
+| `encoding` | File encoding (optional, default: "utf-8"). Supported: utf-8, utf-16, utf-16be, utf-16le, windows-1251, iso-8859-1, iso-8859-15, windows-1252 |
+| `line_numbers` | Add line numbers to output (optional, default: false) |
+| `skip_empty` | Skip empty lines (optional, default: false) |
+| `max_lines` | Maximum number of lines to return (optional) |
+| `pattern` | Regex pattern to filter matching lines (optional) |
 
 **Return Value**: Object with `content` field containing an array of objects in format `[{"type": "text", "text": "file content"}]` for MCP protocol compatibility.
+
+**Note**: All parameters except `filename` are optional. If no optional parameters are provided, the entire file is returned as-is, maintaining backward compatibility.
 
 ## view Parameters
 
@@ -95,6 +104,31 @@ echo '{"method": "tools/call", "params": {"name": "edit_file", "arguments": {"fi
 ### Read file
 ```bash
 echo '{"method": "tools/call", "params": {"name": "read_file", "arguments": {"filename": "test.txt"}}}' | ./mcp-file-edit
+```
+
+### Read file with line range
+```bash
+echo '{"method": "tools/call", "params": {"name": "read_file", "arguments": {"filename": "test.txt", "start_line": 5, "end_line": 10}}}' | ./mcp-file-edit
+```
+
+### Read file with line numbers
+```bash
+echo '{"method": "tools/call", "params": {"name": "read_file", "arguments": {"filename": "test.txt", "line_numbers": true}}}' | ./mcp-file-edit
+```
+
+### Read file with regex filter
+```bash
+echo '{"method": "tools/call", "params": {"name": "read_file", "arguments": {"filename": "test.txt", "pattern": "error|warning"}}}' | ./mcp-file-edit
+```
+
+### Read file with encoding
+```bash
+echo '{"method": "tools/call", "params": {"name": "read_file", "arguments": {"filename": "test.txt", "encoding": "windows-1251"}}}' | ./mcp-file-edit
+```
+
+### Read file with multiple filters
+```bash
+echo '{"method": "tools/call", "params": {"name": "read_file", "arguments": {"filename": "test.txt", "start_line": 1, "end_line": 100, "skip_empty": true, "max_lines": 50, "line_numbers": true}}}' | ./mcp-file-edit
 ```
 
 ### Read file (view - alias for read_file)

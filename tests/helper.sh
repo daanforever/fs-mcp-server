@@ -14,14 +14,16 @@ FAILED="${FAILED:-0}"
 # Usage: send_mcp_request '{"jsonrpc":"2.0","id":1,"method":"tools/call",...}'
 send_mcp_request() {
     local request="$1"
-    local timeout="${2:-3}"  # Default timeout 3 seconds
+    local timeout="${2:-5}"  # Default timeout 5 seconds
     
     (
         echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}}}'
-        echo '{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}'
-        echo "$request"
         sleep 0.1
-    ) | timeout "$timeout" "$SERVER" 2>/dev/null | tail -1
+        echo '{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}'
+        sleep 0.1
+        echo "$request"
+        sleep 1.0
+    ) | timeout "$timeout" "$SERVER" 2>/dev/null | grep -v '"id":1' | tail -1
 }
 
 # Run a test case and track results
