@@ -19,10 +19,10 @@
 │   ├── exec.go          # Exec handler
 │   └── write_file.go    # Write file handler
 ├── go.mod               # Go module definition
-├── README.md            # User documentation
+├── README.md            # User documentation (see Documentation section)
 ├── AGENTS.md            # This file - AI agent guidelines
 ├── tests/               # Test scripts and documentation
-│   ├── TESTS.md         # Test cases and edge cases
+│   ├── TESTS.md         # Test documentation and Python conversion guide (see Documentation section)
 │   ├── test_example.sh  # Example test scripts
 │   └── ...              # Additional test scripts
 └── .continue/           # MCP server configuration
@@ -126,12 +126,71 @@ go build -o mcp-file-edit ./src
 - Multiple text occurrences
 - Various editing modes
 
+## Documentation
+
+### README.md
+**Purpose**: User-facing documentation for the MCP File Edit Server
+
+**Contents**:
+- **Features Overview**: Lists all available tools (edit_file, read_file, view, exec)
+- **API Reference**: Detailed parameter documentation for each tool:
+  - `edit_file`: Parameters including `filename`, `content`, `old_string`/`old_text`, `new_string`/`new_text` with backward compatibility notes
+  - `read_file`: Parameters including `filename`, `start_line`, `end_line`, `encoding`, `line_numbers`, `skip_empty`, `max_lines`, `pattern`
+  - `view`: Alias for `read_file` with identical functionality
+  - `exec`: Parameters including `command`, `work_dir`, `timeout` with return value structure
+- **Operating Modes**: Detailed explanation of edit_file modes (full write, partial replacement, deletion, append, full replacement)
+- **Installation Instructions**: Build commands and setup steps
+- **Testing Guide**: Instructions for running tests, including reference to `tests/TESTS.md`
+- **Usage Examples**: Comprehensive command-line examples for all tools and features
+
+**Target Audience**: End users, developers integrating the server, and anyone using the MCP tools
+
+**Key Information**:
+- Parameter priority and backward compatibility (`old_string`/`new_string` vs `old_text`/`new_text`)
+- Response format details (MCP protocol compatibility with content array format)
+- Encoding support (utf-8, utf-16 variants, windows-1251, iso-8859-1, iso-8859-15, windows-1252)
+- Command execution details (bash -c, timeout handling, process termination)
+
+### tests/TESTS.md
+**Purpose**: Comprehensive testing documentation and Python test conversion guide
+
+**Contents**:
+- **Python Test Conversion Guide**: Complete guide for creating and converting tests to Python
+- **Test Structure & Templates**: Basic templates and patterns for writing tests
+- **Helper Functions Documentation**:
+  - `send_mcp_request()`: Sends MCP requests with automatic initialization
+  - `test_case()`: Runs test cases and tracks results
+  - `print_test_results()`: Prints test summary and returns exit code
+- **Common Test Patterns**: Examples for:
+  - Reading file content (with safe dictionary access)
+  - Writing/editing files
+  - Error handling tests
+  - Comparing tool responses
+  - Testing JSON string arguments
+- **File Operations**: Patterns for creating test files, reading files, and cleanup
+- **Response Structure**: Detailed explanation of MCP response formats (success and error responses)
+- **Conversion Checklist**: Step-by-step guide for converting shell tests to Python
+- **Differences from Shell Tests**: Comparison of shell vs Python testing approaches
+- **Best Practices**: Safety guidelines, error handling, and testing recommendations
+- **Example Test File**: Complete working example demonstrating all patterns
+- **Running Tests**: Instructions for individual and batch test execution
+- **Troubleshooting**: Common issues and solutions
+
+**Target Audience**: Test developers, contributors adding new tests, developers converting shell tests to Python
+
+**Key Information**:
+- Always use `id: 2` or higher to avoid conflicts with initialize request
+- Safe dictionary access patterns to avoid KeyError exceptions
+- Response structure: `response["result"]["content"][0]["text"]` with proper checks
+- Error checking: `isError` flag or `error` key in response
+- Python is preferred over shell scripts for better maintainability and cross-platform compatibility
+
 ## Testing Strategy
 
 ### Test Files
 - `tests/test_example.sh`: Basic functionality tests
 - `tests/test_edge_cases.sh`: Comprehensive edge case testing
-- `tests/TESTS.md`: Documented test cases and expected results
+- `tests/TESTS.md`: Comprehensive test documentation and Python conversion guide (see Documentation section above)
 
 ### Test Coverage
 15+ edge cases tested including:
