@@ -108,27 +108,27 @@ check_error_has_arguments() {
     local response="$2"
     local expected_arg="$3"
     
-    echo "Тест: $test_name"
+    echo "Test: $test_name"
     
     # Check for error.data.received_arguments field
     if echo "$response" | jq -e '.error.data.received_arguments' > /dev/null 2>&1; then
         # If expected arg is specified, check for it
         if [ -n "$expected_arg" ]; then
             if echo "$response" | jq -e ".error.data.received_arguments.$expected_arg" > /dev/null 2>&1; then
-                echo "  ✓ PASS: Ошибка содержит received_arguments с $expected_arg"
+                echo "  ✓ PASS: Error contains received_arguments with $expected_arg"
                 ((PASSED++))
             else
-                echo "  ✗ FAIL: Ошибка не содержит $expected_arg в received_arguments"
-                echo "  Ответ: $response"
+                echo "  ✗ FAIL: Error does not contain $expected_arg in received_arguments"
+                echo "  Response: $response"
                 ((FAILED++))
             fi
         else
-            echo "  ✓ PASS: Ошибка содержит received_arguments"
+            echo "  ✓ PASS: Error contains received_arguments"
             ((PASSED++))
         fi
     else
-        echo "  ✗ FAIL: Ошибка не содержит поле data.received_arguments"
-        echo "  Ответ: $response"
+        echo "  ✗ FAIL: Error does not contain data.received_arguments field"
+        echo "  Response: $response"
         ((FAILED++))
     fi
     echo ""
@@ -159,16 +159,16 @@ run_test() {
 # Usage: print_test_results
 print_test_results() {
     echo ""
-    echo "=== Результаты ==="
-    echo "Пройдено: $PASSED"
-    echo "Провалено: $FAILED"
+    echo "=== Results ==="
+    echo "Passed: $PASSED"
+    echo "Failed: $FAILED"
     echo ""
     
     if [ $FAILED -eq 0 ]; then
-        echo "Все тесты пройдены успешно!"
+        echo "All tests passed successfully!"
         return 0
     else
-        echo "Некоторые тесты провалились."
+        echo "Some tests failed."
         return 1
     fi
 }

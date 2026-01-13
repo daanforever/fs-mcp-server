@@ -17,7 +17,7 @@ os.makedirs(TEST_DIR, exist_ok=True)
 print("=== Edge Cases Tests ===")
 print()
 
-# 1. Файл с пустым содержимым (content="")
+# 1. File with empty content (content="")
 def test_1():
     request = {
         "jsonrpc": "2.0",
@@ -37,9 +37,9 @@ def test_1():
                 return True
     return False
 
-test_case("Пустой файл (content='')", test_1, lambda r: r is True)
+test_case("Empty file (content='')", test_1, lambda r: r is True)
 
-# 2. Файл с пробелами
+# 2. File with spaces
 def test_2():
     content = "   spaces   "
     request = {
@@ -63,9 +63,9 @@ def test_2():
                         return True
     return False
 
-test_case("Файл с пробелами", test_2, lambda r: r is True)
+test_case("File with spaces", test_2, lambda r: r is True)
 
-# 3. Спецсимволы
+# 3. Special characters
 def test_3():
     content = "Line 1\nLine 2\n\tTabbed"
     request = {
@@ -89,9 +89,9 @@ def test_3():
                         return True
     return False
 
-test_case("Спецсимволы", test_3, lambda r: r is True)
+test_case("Special characters", test_3, lambda r: r is True)
 
-# 4. Замена несуществующего текста
+# 4. Replacing non-existent text
 def test_4():
     # First create base file
     request1 = {
@@ -132,9 +132,9 @@ def test_4():
                         return True
     return False
 
-test_case("Замена несуществующего текста", test_4, lambda r: r is True)
+test_case("Replacing non-existent text", test_4, lambda r: r is True)
 
-# 5. Удаление текста (old_text без new_text)
+# 5. Deleting text (old_text without new_text)
 def test_5():
     # First create file
     request1 = {
@@ -175,9 +175,9 @@ def test_5():
                         return True
     return False
 
-test_case("Удаление текста", test_5, lambda r: r is True)
+test_case("Deleting text", test_5, lambda r: r is True)
 
-# 6. Множественные вхождения
+# 6. Multiple occurrences
 def test_6():
     # First create file
     request1 = {
@@ -218,9 +218,9 @@ def test_6():
                         return True
     return False
 
-test_case("Множественные вхождения", test_6, lambda r: r is True)
+test_case("Multiple occurrences", test_6, lambda r: r is True)
 
-# 7. Вложенные директории
+# 7. Nested directories
 def test_7():
     request = {
         "jsonrpc": "2.0",
@@ -240,9 +240,9 @@ def test_7():
                 return True
     return False
 
-test_case("Вложенные директории", test_7, lambda r: r is True)
+test_case("Nested directories", test_7, lambda r: r is True)
 
-# 8. Чтение несуществующего файла
+# 8. Reading non-existent file
 def test_8():
     request = {
         "jsonrpc": "2.0",
@@ -260,9 +260,9 @@ def test_8():
             return True
     return False
 
-test_case("Чтение несуществующего файла", test_8, lambda r: r is True)
+test_case("Reading non-existent file", test_8, lambda r: r is True)
 
-# 9. Полная замена через *
+# 9. Full replacement with *
 def test_9():
     # First create file
     request1 = {
@@ -303,9 +303,9 @@ def test_9():
                         return True
     return False
 
-test_case("Полная замена через *", test_9, lambda r: r is True)
+test_case("Full replacement with *", test_9, lambda r: r is True)
 
-# 10. Очень длинная строка
+# 10. Very long string
 def test_10():
     long_content = "A" * 10000
     request = {
@@ -328,9 +328,9 @@ def test_10():
                     return True
     return False
 
-test_case("Очень длинная строка", test_10, lambda r: r is True)
+test_case("Very long string", test_10, lambda r: r is True)
 
-# 11. UTF-8 символы
+# 11. UTF-8 characters
 def test_11():
     content = "Привет мир! 🌍"
     request = {
@@ -354,9 +354,9 @@ def test_11():
                         return True
     return False
 
-test_case("UTF-8 (кириллица)", test_11, lambda r: r is True)
+test_case("UTF-8 (Cyrillic)", test_11, lambda r: r is True)
 
-# 12. Замена в пустом файле
+# 12. Replacement in an empty file
 def test_12():
     # First create empty file
     request1 = {
@@ -397,9 +397,9 @@ def test_12():
                         return True
     return False
 
-test_case("Замена в пустом файле", test_12, lambda r: r is True)
+test_case("Replacement in an empty file", test_12, lambda r: r is True)
 
-# 13. Content имеет приоритет
+# 13. Content has priority over old_text/new_text
 def test_13():
     # First create file
     request1 = {
@@ -445,9 +445,9 @@ def test_13():
                         return True
     return False
 
-test_case("Content приоритетнее old_text/new_text", test_13, lambda r: r is True)
+test_case("Content priority over old_text/new_text", test_13, lambda r: r is True)
 
-# 14. Добавление в конец пустого файла
+# 14. Appending to an empty file
 def test_14():
     # First create empty file
     request1 = {
@@ -488,9 +488,9 @@ def test_14():
                         return True
     return False
 
-test_case("Добавление в конец пустого файла", test_14, lambda r: r is True)
+test_case("Appending to an empty file", test_14, lambda r: r is True)
 
-# 15. Новый текст с переносом строк
+# 15. Multiline new text
 def test_15():
     # First create file
     request1 = {
@@ -535,9 +535,9 @@ def test_15():
                         return True
     return False
 
-test_case("Многолиновый новый текст", test_15, lambda r: r is True)
+test_case("Multiline new text", test_15, lambda r: r is True)
 
-# 16. Замена всех вхождений (default)
+# 16. Replace all occurrences (default)
 def test_16():
     # First create file
     request1 = {
@@ -578,9 +578,9 @@ def test_16():
                         return True
     return False
 
-test_case("Замена всех вхождений (default)", test_16, lambda r: r is True)
+test_case("Replace all occurrences (default)", test_16, lambda r: r is True)
 
-# 17. Файл без расширения
+# 17. File without extension
 def test_17():
     request = {
         "jsonrpc": "2.0",
@@ -600,9 +600,9 @@ def test_17():
                 return True
     return False
 
-test_case("Файл без расширения", test_17, lambda r: r is True)
+test_case("File without extension", test_17, lambda r: r is True)
 
-# 18. Попытка изменить директорию как файл (error)
+# 18. Writing to a directory (error)
 def test_18():
     request = {
         "jsonrpc": "2.0",
@@ -624,9 +624,9 @@ def test_18():
             return True
     return False
 
-test_case("Запись в директорию", test_18, lambda r: r is True)
+test_case("Writing to a directory", test_18, lambda r: r is True)
 
-# 19. Файл с BOM
+# 19. File with BOM
 def test_19():
     content = "\uFEFFBOM"
     request = {
@@ -647,9 +647,9 @@ def test_19():
                 return True
     return False
 
-test_case("Файл с BOM", test_19, lambda r: r is True)
+test_case("File with BOM", test_19, lambda r: r is True)
 
-# 20. Проверка что старый content не влияет при новой записи
+# 20. Check that old content does not affect new write
 def test_20():
     # First create file
     request1 = {
@@ -690,7 +690,7 @@ def test_20():
                         return True
     return False
 
-test_case("Перезапись существующего файла", test_20, lambda r: r is True)
+test_case("Rewriting an existing file", test_20, lambda r: r is True)
 
 # Cleanup
 shutil.rmtree(TEST_DIR, ignore_errors=True)
