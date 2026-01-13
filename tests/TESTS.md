@@ -252,7 +252,97 @@ def test_comparison():
 test_case("Compare tools", test_comparison, lambda r: r is True)
 ```
 
-### 5. Testing JSON String Arguments (Unsupported)
+### 5. Testing Tools with JSON Response Structures
+
+**Pattern (for tools like `list_files` that return JSON objects):**
+```python
+import json
+
+def extract_files(response):
+    """Extract files array from response"""
+    if not response or "result" not in response:
+        return None
+    if "content" not in response["result"]:
+        return None
+    if not response["result"]["content"] or len(response["result"]["content"]) == 0:
+        return None
+    
+    text = response["result"]["content"][0].get("text", "")
+    if not text:
+        return None
+    
+    try:
+        data = json.loads(text)
+        return data.get("files", [])
+    except json.JSONDecodeError:
+        return None
+
+def test_list_files():
+    request = {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/call",
+        "params": {
+            "name": "list_files",
+            "arguments": {"path": TEST_DIR}
+        }
+    }
+    response = send_mcp_request(request)
+    files = extract_files(response)
+    if files is None:
+        return None
+    # Return list of file names for comparison
+    return sorted([f["name"] for f in files])
+
+test_case("List files", test_list_files, 
+          lambda r: r == ["file1.txt", "file2.txt", "subdir1"])
+```
+
+**Key Points:**
+- Parse JSON from `response["result"]["content"][0]["text"]`
+- Use `json.loads()` to parse the JSON string
+- Extract nested data structures (e.g., `data.get("files", [])`)
+- Return processed data (e.g., list of names) for easy comparison
+- Handle `json.JSONDecodeError` for invalid JSON
+
+### 6. Testing Error Detection with isError Flag
+
+**Pattern (for tools that use isError flag):**
+```python
+def has_error(response):
+    """Check if response has an error"""
+    if response is None:
+        return False
+    # Check for standard error field
+    if "error" in response:
+        return True
+    # Check for isError flag in result (MCP SDK format)
+    if "result" in response and response["result"].get("isError", False):
+        return True
+    return False
+
+def test_error_case():
+    request = {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/call",
+        "params": {
+            "name": "list_files",
+            "arguments": {"path": f"{TEST_DIR}/nonexistent"}
+        }
+    }
+    response = send_mcp_request(request)
+    return has_error(response)
+
+test_case("Error handling", test_error_case, lambda r: r is True)
+```
+
+**Key Points:**
+- Check both `"error"` key and `isError` flag in result
+- Some tools return errors with `isError: true` in the result object
+- Return boolean for easy validation in test_case
+
+### 7. Testing JSON String Arguments (Unsupported)
 
 **Pattern:**
 ```python
@@ -652,5 +742,6 @@ python3 tests/test_view.py
 
 - See `test_read_file.py` for read_file tool tests
 - See `test_view.py` for view tool tests (converted from shell)
+- See `test_list_files.py` for list_files tool tests
 - See `edge_cases_test.py` for comprehensive edge case testing
 - See `test_helper.py` for helper function implementations
