@@ -10,7 +10,14 @@
 
 ```
 /
-├── main.go              # Main server implementation
+├── src/                 # Go source files
+│   ├── main.go          # Main server implementation
+│   ├── types.go         # Type definitions
+│   ├── config.go        # Global configuration
+│   ├── edit_file.go     # Edit file handler
+│   ├── read_file.go     # Read file handler
+│   ├── exec.go          # Exec handler
+│   └── write_file.go    # Write file handler
 ├── go.mod               # Go module definition
 ├── README.md            # User documentation
 ├── AGENTS.md            # This file - AI agent guidelines
@@ -28,7 +35,7 @@
 ### Build
 ```bash
 go mod tidy
-go build -o mcp-file-edit main.go
+go build -o mcp-file-edit ./src
 ```
 
 ### Run

@@ -6,8 +6,9 @@
 # Source helper functions
 source "$(dirname "$0")/helper.sh"
 
-TEST_DIR="test_debug_dir"
+TEST_DIR="tmp/test_debug_dir"
 LOG_FILE="mcp.log"
+mkdir -p tmp
 rm -rf $TEST_DIR
 rm -f $LOG_FILE
 mkdir -p $TEST_DIR

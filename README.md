@@ -76,7 +76,7 @@ A simple Go-based MCP (Model Context Protocol) server for file editing operation
 
 ```bash
 go mod tidy
-go build -o mcp-file-edit main.go
+go build -o mcp-file-edit ./src
 ```
 
 ## Usage Examples

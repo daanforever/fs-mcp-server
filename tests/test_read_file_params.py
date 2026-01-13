@@ -9,9 +9,10 @@ import json
 import re
 from test_helper import send_mcp_request, test_case, print_test_results
 
-TEST_DIR = "test_read_params_dir"
+TEST_DIR = "tmp/test_read_params_dir"
 
 # Cleanup and setup
+os.makedirs("tmp", exist_ok=True)
 if os.path.exists(TEST_DIR):
     shutil.rmtree(TEST_DIR)
 os.makedirs(TEST_DIR, exist_ok=True)
@@ -581,7 +582,7 @@ test_case("9.1 Чтение без новых параметров (обратн
           lambda r: "Line 1" in r and "Line 5" in r)
 
 # Очистка
-shutil.rmtree(TEST_DIR)
+shutil.rmtree(TEST_DIR, ignore_errors=True)
 
 # Print results and exit
 sys.exit(print_test_results())

@@ -7,9 +7,10 @@ import shutil
 import sys
 from test_helper import send_mcp_request, test_case, print_test_results, PASSED, FAILED
 
-TEST_DIR = "test_write_dir"
+TEST_DIR = "tmp/test_write_dir"
 
 # Cleanup and setup
+os.makedirs("tmp", exist_ok=True)
 if os.path.exists(TEST_DIR):
     shutil.rmtree(TEST_DIR)
 os.makedirs(TEST_DIR, exist_ok=True)

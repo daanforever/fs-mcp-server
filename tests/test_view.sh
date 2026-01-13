@@ -6,7 +6,8 @@
 # Source helper functions
 source "$(dirname "$0")/helper.sh"
 
-TEST_DIR="test_view_dir"
+TEST_DIR="tmp/test_view_dir"
+mkdir -p tmp
 rm -rf $TEST_DIR
 mkdir -p $TEST_DIR
 
