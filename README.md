@@ -79,6 +79,45 @@ go mod tidy
 go build -o mcp-file-edit ./src
 ```
 
+## Testing
+
+Run all tests at once using the test runner script:
+
+```bash
+./tests/run_all_tests.sh
+```
+
+This script will:
+- Automatically build the `mcp-file-edit` binary if it doesn't exist
+- Run all shell test scripts (bash)
+- Run all Python test scripts
+- Provide a summary report with pass/fail counts
+- Clean up temporary test directories
+
+Individual test scripts can also be run directly:
+
+```bash
+./tests/test_example.sh
+./tests/test_edge_cases.sh
+./tests/test_read_file.sh
+# ... etc
+```
+
+### Test Documentation
+
+For comprehensive testing guidance, see [tests/TESTS.md](tests/TESTS.md), which includes:
+
+- **Python Test Conversion Guide** - Complete guide for creating and converting tests to Python
+- **Test Structure & Templates** - Basic templates and patterns for writing tests
+- **Helper Functions** - Documentation for `send_mcp_request()`, `test_case()`, and `print_test_results()`
+- **Common Test Patterns** - Examples for reading files, writing files, error handling, and more
+- **Response Structure** - Detailed explanation of MCP response formats
+- **Best Practices** - Safety guidelines, error handling, and testing recommendations
+- **Conversion Checklist** - Step-by-step guide for converting shell tests to Python
+- **Troubleshooting** - Common issues and solutions
+
+The test suite includes both shell scripts (bash) and Python scripts, with Python being the preferred format for better maintainability and cross-platform compatibility.
+
 ## Usage Examples
 
 ### Full write
