@@ -8,6 +8,7 @@ A simple Go-based MCP (Model Context Protocol) server for file editing operation
 - **read_file** - Read file contents
 - **view** - Read file contents (alias for read_file)
 - **exec** - Execute shell commands with timeout and working directory support
+- **list_files** - List files and directories with optional filtering
 
 ## edit_file Parameters
 
@@ -71,6 +72,29 @@ A simple Go-based MCP (Model Context Protocol) server for file editing operation
 - `timeout` - boolean indicating if timeout was exceeded
 
 **Note**: Commands are executed via `bash -c`. All active commands are automatically terminated when the server stops (SIGTERM, then SIGKILL if needed).
+
+## list_files Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `path` | File or directory path (required) |
+| `pattern` | File filter pattern using glob syntax (e.g., "*.txt", "test_*") (optional, only applies when path is a directory) |
+| `recursive` | Search recursively in subdirectories (optional, default: false, only applies when path is a directory) |
+| `show_hidden` | Show hidden files and directories starting with '.' (optional, default: false) |
+| `max_depth` | Maximum depth for recursive traversal (1 = current directory only, 2 = one level deep, etc.) (optional, only applies when path is a directory and recursive is true) |
+
+**Return Value**: JSON object with `files` array containing objects with:
+- `name` (string) - File or directory name
+- `type` (string) - "file" or "directory"
+- `size` (number, optional) - File size in bytes (only for files, omitted for directories)
+- `modified` (string) - Last modification date in ISO 8601 format (RFC3339)
+
+**Behavior**:
+- If `path` is a file: returns array with single file entry (recursive, max_depth, and pattern parameters are ignored)
+- If `path` is a directory: lists files according to filter parameters
+- Pattern matching uses glob syntax (`*`, `?`, `[...]`) and matches against file/directory name only
+- If `recursive` is false, `max_depth` is ignored
+- If `max_depth` is not specified and `recursive` is true, all depths are traversed
 
 ## Installation
 
@@ -178,4 +202,39 @@ echo '{"method": "tools/call", "params": {"name": "view", "arguments": {"filenam
 ### Execute command
 ```bash
 echo '{"method": "tools/call", "params": {"name": "exec", "arguments": {"command": "ls -la", "work_dir": "/tmp", "timeout": 60}}}' | ./mcp-file-edit
+```
+
+### List files (basic)
+```bash
+echo '{"method": "tools/call", "params": {"name": "list_files", "arguments": {"path": "/tmp"}}}' | ./mcp-file-edit
+```
+
+### List a single file
+```bash
+echo '{"method": "tools/call", "params": {"name": "list_files", "arguments": {"path": "/tmp/file.txt"}}}' | ./mcp-file-edit
+```
+
+### List files recursively
+```bash
+echo '{"method": "tools/call", "params": {"name": "list_files", "arguments": {"path": "/tmp", "recursive": true}}}' | ./mcp-file-edit
+```
+
+### List files with max depth
+```bash
+echo '{"method": "tools/call", "params": {"name": "list_files", "arguments": {"path": "/tmp", "recursive": true, "max_depth": 2}}}' | ./mcp-file-edit
+```
+
+### List files with pattern filter
+```bash
+echo '{"method": "tools/call", "params": {"name": "list_files", "arguments": {"path": "/tmp", "pattern": "*.txt"}}}' | ./mcp-file-edit
+```
+
+### List files showing hidden files
+```bash
+echo '{"method": "tools/call", "params": {"name": "list_files", "arguments": {"path": "/tmp", "show_hidden": true}}}' | ./mcp-file-edit
+```
+
+### List files with combined filters
+```bash
+echo '{"method": "tools/call", "params": {"name": "list_files", "arguments": {"path": "/tmp", "recursive": true, "pattern": "*.txt", "show_hidden": true, "max_depth": 2}}}' | ./mcp-file-edit
 ```

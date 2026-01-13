@@ -57,6 +57,7 @@ PYTHON_TEST_SCRIPTS=(
     "test_read_file_params.py"
     "test_write_file.py"
     "test_view.py"
+    "test_list_files.py"
     "edge_cases_test.py"
 )
 

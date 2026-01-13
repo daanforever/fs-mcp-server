@@ -82,6 +82,11 @@ func main() {
 		Description: "Write content to a file. Creates the file if it doesn't exist, overwrites if it does.",
 	}, handleWriteFile)
 
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "list_files",
+		Description: "List files and directories in a specified path with optional filtering (pattern, recursive, show_hidden, max_depth)",
+	}, handleListFiles)
+
 	// Run server (blocks until context cancelled)
 	if err := server.Run(ctx, &mcp.StdioTransport{}); err != nil {
 		if logger != nil {

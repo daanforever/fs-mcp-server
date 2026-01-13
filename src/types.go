@@ -38,6 +38,14 @@ type WriteFileRequest struct {
 	Content  string `json:"content"`
 }
 
+type ListFilesRequest struct {
+	Path       string  `json:"path"`
+	Pattern    *string `json:"pattern,omitempty"`
+	Recursive  *bool   `json:"recursive,omitempty"`
+	ShowHidden *bool   `json:"show_hidden,omitempty"`
+	MaxDepth   *int    `json:"max_depth,omitempty"`
+}
+
 type commandTracker struct {
 	mu       sync.Mutex
 	commands map[*exec.Cmd]context.CancelFunc
