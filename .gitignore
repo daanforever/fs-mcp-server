@@ -1,6 +1,7 @@
 /ssh-agent.sock
 .continue
 mcp-file-edit
+mcp-file-edit.exe
 R.md
 mcp.log
 __pycache__

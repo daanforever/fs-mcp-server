@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -47,8 +48,18 @@ func handleExec(ctx context.Context, req *mcp.CallToolRequest, input ExecRequest
 	cmdCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 	defer cancel()
 
+	// Determine shell based on OS
+	var shell, shellArg string
+	if runtime.GOOS == "windows" {
+		shell = "cmd"
+		shellArg = "/c"
+	} else {
+		shell = "bash"
+		shellArg = "-c"
+	}
+
 	// Create command
-	cmd := exec.CommandContext(cmdCtx, "bash", "-c", input.Command)
+	cmd := exec.CommandContext(cmdCtx, shell, shellArg, input.Command)
 
 	// Set working directory if provided
 	if input.WorkDir != nil {
