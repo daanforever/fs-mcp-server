@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Тесты для проверки флага --debug
+# Tests for checking the --debug flag
 # Проверяет, что полные запросы и ответы записываются в mcp.log
 
 # Source helper functions

@@ -59,7 +59,7 @@ func main() {
 	// Register tools
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "edit_file",
-		Description: "Edit or create a file. Supports three modes: 1) Full write with 'content', 2) Text replacement with 'old_string' and 'new_string', 3) Append with 'new_string' only",
+		Description: "Edit a file. Supports two modes: 1) Text replacement with 'old_string' and 'new_string', 2) Append with 'new_string' only",
 	}, handleEditFile)
 
 	mcp.AddTool(server, &mcp.Tool{
