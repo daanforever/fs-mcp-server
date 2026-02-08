@@ -6,10 +6,35 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// detectLineEnding detects the line ending style of the content
+func detectLineEnding(content string) string {
+	if strings.Contains(content, "\r\n") {
+		return "\r\n" // Windows
+	}
+	return "\n" // Unix/Linux/macOS
+}
+
+// normalizeLineEndings converts content to use \n for internal processing
+func normalizeLineEndings(content string) string {
+	return strings.ReplaceAll(content, "\r\n", "\n")
+}
+
+// restoreLineEndings converts \n back to the original line ending style
+func restoreLineEndings(content string, lineEnding string) string {
+	if lineEnding == "\r\n" {
+		// Replace \n with \r\n, but be careful not to double-convert
+		// First, normalize any existing \r\n to \n, then convert all \n to \r\n
+		content = strings.ReplaceAll(content, "\r\n", "\n")
+		return strings.ReplaceAll(content, "\n", "\r\n")
+	}
+	return content
+}
 
 func handleEditFile(ctx context.Context, req *mcp.CallToolRequest, input EditFileRequest) (
 	*mcp.CallToolResult,
@@ -20,7 +45,7 @@ func handleEditFile(ctx context.Context, req *mcp.CallToolRequest, input EditFil
 	if logger != nil {
 		reqJSON, _ := json.MarshalIndent(req, "", "  ")
 		logger.Debug("edit_file REQUEST", "request", string(reqJSON))
-		logger.Debug("edit_file called", "filename", input.Filename)
+		logger.Debug("edit_file called", "filename", input.Filename, "os", runtime.GOOS)
 	}
 
 	// Create directories if needed
@@ -46,15 +71,29 @@ func handleEditFile(ctx context.Context, req *mcp.CallToolRequest, input EditFil
 		if input.Content == nil {
 			return nil, nil, fmt.Errorf("invalid arguments: content parameter is nil")
 		}
-		content = []byte(*input.Content)
+		
+		// On Windows, normalize line endings to CRLF for full writes if not explicitly provided
+		contentStr := *input.Content
+		if runtime.GOOS == "windows" && !strings.Contains(contentStr, "\r\n") {
+			// If content has LF but no CRLF, and we're on Windows, convert to CRLF
+			contentStr = strings.ReplaceAll(contentStr, "\n", "\r\n")
+		}
+		content = []byte(contentStr)
 	} else if hasOldText {
 		// Text replacement mode
-		content, err = os.ReadFile(input.Filename)
+		originalContent, err := os.ReadFile(input.Filename)
 		if err != nil && !os.IsNotExist(err) {
 			return nil, nil, fmt.Errorf("failed to read file %q: %v", input.Filename, err)
 		}
 
-		fileContent := string(content)
+		fileContent := string(originalContent)
+		
+		// Detect the line ending style of the existing file
+		lineEnding := detectLineEnding(fileContent)
+		
+		// Normalize file content to \n for processing
+		normalizedFileContent := normalizeLineEndings(fileContent)
+		
 		// Use old_string/new_string if available, otherwise old_text/new_text
 		var oldText string
 		if input.OldString != nil {
@@ -69,18 +108,24 @@ func handleEditFile(ctx context.Context, req *mcp.CallToolRequest, input EditFil
 			newText = *input.NewText
 		}
 
-		if oldText == "*" {
-			fileContent = newText
-		} else if strings.Contains(fileContent, oldText) {
-			fileContent = strings.ReplaceAll(fileContent, oldText, newText)
-		} else if newText != "" {
-			if fileContent != "" && !strings.HasSuffix(fileContent, "\n") {
-				fileContent += "\n"
+		// Normalize input text to \n for matching (in case they came with different line endings)
+		normalizedOldText := normalizeLineEndings(oldText)
+		normalizedNewText := normalizeLineEndings(newText)
+
+		if normalizedOldText == "*" {
+			normalizedFileContent = normalizedNewText
+		} else if strings.Contains(normalizedFileContent, normalizedOldText) {
+			normalizedFileContent = strings.ReplaceAll(normalizedFileContent, normalizedOldText, normalizedNewText)
+		} else if normalizedNewText != "" {
+			if normalizedFileContent != "" && !strings.HasSuffix(normalizedFileContent, "\n") {
+				normalizedFileContent += "\n"
 			}
-			fileContent += newText
+			normalizedFileContent += normalizedNewText
 		}
 
-		content = []byte(fileContent)
+		// Restore original line ending style before writing
+		finalContent := restoreLineEndings(normalizedFileContent, lineEnding)
+		content = []byte(finalContent)
 	} else if hasNewText {
 		// Append mode
 		current, err := os.ReadFile(input.Filename)
@@ -88,17 +133,31 @@ func handleEditFile(ctx context.Context, req *mcp.CallToolRequest, input EditFil
 			return nil, nil, fmt.Errorf("failed to read file %q: %v", input.Filename, err)
 		}
 		fileContent := string(current)
+		
+		// Detect the line ending style of the existing file
+		lineEnding := detectLineEnding(fileContent)
+		
+		// Normalize to \n for processing
+		normalizedFileContent := normalizeLineEndings(fileContent)
+		
 		var newText string
 		if input.NewString != nil {
 			newText = *input.NewString
 		} else if input.NewText != nil {
 			newText = *input.NewText
 		}
-		if fileContent != "" && !strings.HasSuffix(fileContent, "\n") {
-			fileContent += "\n"
+		
+		// Normalize new text to \n
+		normalizedNewText := normalizeLineEndings(newText)
+
+		if normalizedFileContent != "" && !strings.HasSuffix(normalizedFileContent, "\n") {
+			normalizedFileContent += "\n"
 		}
-		fileContent += newText
-		content = []byte(fileContent)
+		normalizedFileContent += normalizedNewText
+		
+		// Restore original line ending style
+		finalContent := restoreLineEndings(normalizedFileContent, lineEnding)
+		content = []byte(finalContent)
 	} else {
 		return nil, nil, fmt.Errorf("invalid arguments: must provide either 'content' (for full write), 'old_string' (for replacement/removal), or 'new_string' (for append)")
 	}
@@ -129,7 +188,7 @@ func handleEditFile(ctx context.Context, req *mcp.CallToolRequest, input EditFil
 
 	// Log full response if debug mode
 	if logger != nil {
-		logger.Debug("edit_file completed", "filename", input.Filename, "bytes_written", len(content))
+		logger.Debug("edit_file completed", "filename", input.Filename, "bytes_written", len(content), "os", runtime.GOOS)
 		resultJSON, _ := json.MarshalIndent(result, "", "  ")
 		logger.Debug("edit_file RESPONSE", "response", string(resultJSON))
 	}
